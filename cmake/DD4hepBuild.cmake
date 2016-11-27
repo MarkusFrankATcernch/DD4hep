@@ -1266,7 +1266,7 @@ function( dd4hep_add_dictionary dictionary )
     dd4hep_debug ( "${tag}  Unparsed:'${ARG_UNPARSED_ARGUMENTS}'" ) 
     dd4hep_debug ( "${tag}  Sources: '${CMAKE_CURRENT_SOURCE_DIR}'" ) 
     #
-    if ( ${ROOT_VERSION_MAJOR} GREATER 5 )
+    if ( ${ROOT_VERSION} GREATER 5 )
       ## ${CMAKE_CURRENT_BINARY_DIR}/../lib/${dictionary}_rdict.pcm
       add_custom_command(OUTPUT ${dictionary}.cxx
         COMMAND ${ROOTCLING_EXECUTABLE} -cint -f ${dictionary}.cxx 
