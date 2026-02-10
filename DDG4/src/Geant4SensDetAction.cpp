@@ -40,6 +40,46 @@
 #define MM_2_CM 0.1
 #endif
 
+namespace dd4hep  {
+  namespace sim  {
+    /// Print volume ID
+    void _print_volumeid(const std::string& tag, const IDDescriptor& id, DDSegmentation::VolumeID volID)  {
+      if( id.isValid() )  {
+        std::string value = id.str(volID);
+        printout(ALWAYS, tag, "Volume ID: %016llX -> %s", volID, value.c_str());
+        return;
+      }
+      printout(ALWAYS, tag, "Volume ID: %016llX [no ID descriptor]", volID);
+    }
+
+    /// Print volume ID
+    void _print_volumeid(const Geant4Sensitive* action, const char* tag, DDSegmentation::VolumeID volID, double ene=-1e0)  {
+      SensitiveDetector sensitive = action->sensitiveDetector();
+      char text[64];
+      text[0] = 0;
+      if( ene > 0e0 )  {
+        ::snprintf(text, sizeof(text), "Deposit: %12.3e GeV", ene/1e9);
+      }
+      if( sensitive.isValid() )  {
+        Readout readout = sensitive.readout();
+        if( readout.isValid() )  {
+          IDDescriptor id = readout.idSpec();
+          if( id.isValid() )  {
+            std::string value = id.str(volID);
+            action->always("%-16s %016llX -> %s %s", tag, volID, value.c_str(), text);
+            return;
+          }
+          action->always("%-16s %016llX -> Readout: %s [no ID descriptor] %s", tag, volID, readout.name(), text);
+          return;
+        }
+        action->always("%-16s %016llX -> Sensitive: %s [no readout] %s", volID, sensitive.name(), text);
+        return;
+      }
+      action->always("%-16s %016llX [internal error: no sensitive detectector] %s", volID, text);
+    }
+  }
+}
+
 using namespace dd4hep::sim;
 
 namespace {
@@ -63,27 +103,6 @@ namespace {
     return action_sd;
   }
 #endif
-
-  void _print_volumeid(const Geant4Sensitive* action, dd4hep::DDSegmentation::VolumeID volID)  {
-    dd4hep::SensitiveDetector sensitive = action->sensitiveDetector();
-    if( sensitive.isValid() )  {
-      dd4hep::Readout readout = sensitive.readout();
-      if( readout.isValid() )  {
-        dd4hep::IDDescriptor id = readout.idSpec();
-        if( id.isValid() )  {
-          std::string value = id.str(volID);
-          action->always("Volume ID: %016llX -> %s", volID, value.c_str());
-          return;
-        }
-        action->always("Volume ID: %016llX -> Readout: %s [no ID descriptor]", volID, readout.name());
-        return;
-      }
-      action->always("Volume ID: %016llX -> Sensitive: %s [no readout]", volID, sensitive.name());
-      return;
-    }
-    action->always("Volume ID: %016llX [internal error: no sensitive detectector]", volID);
-  }
-
 }
 
 /// Standard action constructor
@@ -281,7 +300,7 @@ long long int Geant4Sensitive::volumeID(const G4Step* step) {
     Geant4VolumeManager volMgr = Geant4Mapping::instance().volumeManager();
     volID = volMgr.volumeID(stepH.preTouchable());
     if( this->m_debugVolumeID )  {
-      _print_volumeid(this, volID);
+      _print_volumeid(this, "Volume ID", volID, step->GetTotalEnergyDeposit());
     }
   }
   return volID;
@@ -294,7 +313,7 @@ long long int Geant4Sensitive::volumeID(const G4VTouchable* touchable) {
     Geant4VolumeManager volMgr = Geant4Mapping::instance().volumeManager();
     volID= volMgr.volumeID(touchable);
     if( this->m_debugVolumeID )  {
-      _print_volumeid(this, volID);
+      _print_volumeid(this, "Volume ID", volID);
     }
   }
   return volID;
@@ -321,7 +340,7 @@ long long int Geant4Sensitive::cellID(const G4Step* step)  {
       try  {
         VolumeID cID = m_segmentation.cellID(loc, glob, volID);
         if( this->m_debugVolumeID )  {
-          _print_volumeid(this, cID);
+          _print_volumeid(this, "Cell ID", cID, step->GetTotalEnergyDeposit());
         }
         return cID;
       }
@@ -339,7 +358,7 @@ long long int Geant4Sensitive::cellID(const G4Step* step)  {
       }
     }
     else if( this->m_debugVolumeID )  {
-      _print_volumeid(this, volID);
+      _print_volumeid(this, "Volume ID", volID, step->GetTotalEnergyDeposit());
     }
   }
   return volID;
@@ -360,7 +379,7 @@ long long int Geant4Sensitive::cellID(const G4VTouchable* touchable, const G4Thr
       try  {
         VolumeID cID = m_segmentation.cellID(loc, glob, volID);
         if( this->m_debugVolumeID )  {
-          _print_volumeid(this, cID);
+          _print_volumeid(this, "Cell ID", cID);
         }
         return cID;
       }
@@ -379,7 +398,7 @@ long long int Geant4Sensitive::cellID(const G4VTouchable* touchable, const G4Thr
       }
     }
     else if( this->m_debugVolumeID )  {
-      _print_volumeid(this, volID);
+      _print_volumeid(this, "Volume ID", volID);
     }
   }
   return volID;

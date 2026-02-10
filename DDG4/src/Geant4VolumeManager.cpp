@@ -47,9 +47,21 @@ namespace dd4hep {
       typedef std::vector<const G4VPhysicalVolume*>  Geant4PlacementPath;
       std::map<Geant4PlacementPath, Placement>       g4Paths;
     };
+
   }    // End namespace sim
 }      // End namespace dd4hep
 #endif
+
+
+/// Namespace for the AIDA detector description toolkit
+namespace dd4hep {
+  /// Namespace for the Geant4 based simulation part of the AIDA detector description toolkit
+  namespace sim {
+    /// Print volume ID
+    void _print_volumeid(const std::string& tag, const IDDescriptor& iddesc, DDSegmentation::VolumeID volID);
+
+  }    // End namespace sim
+}      // End namespace dd4hep
 
 using namespace dd4hep::sim;
 using namespace dd4hep;
@@ -78,10 +90,10 @@ namespace  {
     /// Reference to Geant4 translation information
     Geant4GeometryInfo& m_geo;
     /// Debug flag for population
-    bool                m_debug { false };
+    long                m_debug { 0 };
     
     /// Default constructor
-    Populator(const Detector& description, Geant4GeometryInfo& g, bool dbg)
+    Populator(const Detector& description, Geant4GeometryInfo& g, long dbg)
       : m_detDesc(description), m_geo(g), m_debug(dbg)
     {
 #ifdef VOLMGR_HAVE_DEBUG_INFO
@@ -161,16 +173,15 @@ namespace  {
     }
 
     void add_entry(SensitiveDetector sd, const TGeoNode* n, const PlacedVolume::VolIDs& ids, const Chain& nodes) {
-      Chain           control;
-      Volume          vol;
-      Readout         rdout   = sd.readout();
-      IDDescriptor    iddesc  = rdout.idSpec();
-      VolumeID        code    = iddesc.encode(ids);
-      PrintLevel print_level  = m_debug ? ALWAYS : m_geo.printLevel;
-      PrintLevel print_action = print_level;
-      PrintLevel print_chain  = print_level;
-      PrintLevel print_res    = print_level;
-      bool       print_nodes  = false;
+      Chain        control;
+      Volume       vol;
+      Readout      rdout           = sd.readout();
+      IDDescriptor iddesc          = rdout.idSpec();
+      VolumeID     code            = iddesc.encode(ids);
+      PrintLevel   print_action    = (m_debug&Geant4VolumeManager::PRINT_ACTION) ? ALWAYS : m_geo.printLevel;
+      PrintLevel   print_chain     = (m_debug&Geant4VolumeManager::PRINT_CHAIN)  ? ALWAYS : m_geo.printLevel;
+      PrintLevel   print_res       = (m_debug&Geant4VolumeManager::PRINT_RESULT) ? ALWAYS : m_geo.printLevel;
+      bool         print_nodes     = (m_debug&Geant4VolumeManager::PRINT_NODES)  ? true : false;
       Geant4TouchableHandler::Geant4PlacementPath path;
       Registries::const_iterator i = m_entries.find(code);
 
@@ -214,8 +225,8 @@ namespace  {
           }
         }
         if ( control.empty() )  {
-          printout(print_res, "Geant4VolumeManager", "+++     Volume  IDs:%s",
-                   detail::tools::toString(rdout.idSpec(),ids,code).c_str());
+          printout(print_res, "Geant4VolumeManager", "+++     Encoded Volume  IDs:%s",
+                   detail::tools::toString(iddesc,ids,code).c_str());
           path.erase(path.begin()+path.size()-1);
           printout(print_res, "Geant4VolumeManager", "+++     Map %016X to Geant4 Path:%s",
                    (void*)code, Geant4TouchableHandler::placementPath(path).c_str());
@@ -229,7 +240,7 @@ namespace  {
                 printout(ERROR,"Geant4VolumeManager"," New   G4 path: %s", Geant4TouchableHandler::placementPath(path).c_str());
               if ( !nodes.empty() )
                 printout(ERROR,"Geant4VolumeManager","     TGeo path: %s", detail::tools::placementPath(nodes,false).c_str());
-              printout(ERROR,"Geant4VolumeManager",  " Offend.VolIDs: %s", detail::tools::toString(rdout.idSpec(),ids,code).c_str());
+              printout(ERROR,"Geant4VolumeManager",  " Offend.VolIDs: %s", detail::tools::toString(iddesc,ids,code).c_str());
             }
             if ( missing_real_path ) {
               Geant4GeometryInfo::PlacementFlags opt;
@@ -244,6 +255,11 @@ namespace  {
             opt.flags.parametrised = path.front()->IsParameterised() ? 1 : 0;
             opt.flags.replicated   = path.front()->IsReplicated()    ? 1 : 0;
             m_geo.g4Paths[hash]    = { code, opt.value };
+            if( m_debug&Geant4VolumeManager::PRINT_VOLIDS )  {
+              std::string idstr = iddesc.str(code);
+              printout(ALWAYS, "Geant4VolumeManager",
+                       "+++     Decoded Volume  IDs: %016llX -> %s", code, idstr.c_str());
+            }
             m_entries.emplace(code);
             return;
           }
@@ -287,19 +303,44 @@ namespace  {
           }
         }
       }
-      printout( ERROR,"Geant4VolumeManager",  " Offend.VolIDs: %s", detail::tools::toString(rdout.idSpec(),ids,code).c_str() );
+      printout( ERROR,"Geant4VolumeManager",  " Offend.VolIDs: %s", detail::tools::toString(iddesc,ids,code).c_str() );
       throw std::runtime_error("Failed to populate Geant4 volume manager!");
     }
   };
 }
 
 /// Initializing constructor. The tree will automatically be built if possible
-Geant4VolumeManager::Geant4VolumeManager(const Detector& description, Geant4GeometryInfo* info, bool debug)
+Geant4VolumeManager::Geant4VolumeManager(const Detector& description, Geant4GeometryInfo* info, long debug)
   : Handle<Geant4GeometryInfo>(info)  {
   if( info && info->valid )  {
     if( !info->has_volmgr )  {
       Populator p(description, *info, debug);
+      printout( ALWAYS, "Geant4VolumeManager", "+++ Populating Geant4 volume manager.");
       p.populate(description.world());
+      printout( ALWAYS, "Geant4VolumeManager",
+                "+++ Geant4 volume manager populated with %ld sensitive path entries.",
+                info->g4Paths.size() );
+      if( debug&PRINT_ENTRIES )  {
+        int count = 0;
+        VolumeManager volmgr = description.volumeManager();
+        for( auto it=info->g4Paths.begin(); it != info->g4Paths.end(); ++it, ++count )  {
+          VolumeID volid = it->second.volumeID;
+          VolumeManagerContext* context = volmgr.lookupContext(volid);
+          if( context )  {
+            std::string  path = context->element.path();
+            PlacedVolume plac = context->volumePlacement();
+            SensitiveDetector sens = plac.volume().sensitiveDetector();
+            std::string       idstr = sens.idSpec().str(volid);
+            printout( ALWAYS, "Geant4VolumeManager", "%8d:  %016X %s -> %s",
+                      count, volid, path.c_str(), plac.name());
+            printout(ALWAYS, "Geant4VolumeManager", "%8s   %16s %s", "", "", idstr.c_str());
+          }
+          else  {
+            printout( ERROR, "Geant4VolumeManager",
+                      "Missing volume manager entry: volume ID %016X", volid);
+          }
+        }
+      }
       info->has_volmgr = true;
     }
     return;
