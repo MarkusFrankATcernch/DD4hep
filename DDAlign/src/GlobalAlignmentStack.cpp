@@ -124,7 +124,7 @@ void GlobalAlignmentStack::release()    {
 bool GlobalAlignmentStack::insert(const std::string& full_path, dd4hep_ptr<StackEntry>& entry)  {
   if ( entry.get() && !full_path.empty() )  {
     entry->path = full_path;
-    return add(entry);
+    return this->add(entry);
   }
   except("GlobalAlignmentStack", "Attempt to apply an invalid alignment entry.");
   return false;
@@ -132,7 +132,7 @@ bool GlobalAlignmentStack::insert(const std::string& full_path, dd4hep_ptr<Stack
 
 /// Add a new entry to the cache. The key is the placement path
 bool GlobalAlignmentStack::insert(dd4hep_ptr<StackEntry>& entry)  {
-  return add(entry);
+  return this->add(entry);
 }
 
 /// Add a new entry to the cache. The key is the placement path
@@ -145,7 +145,7 @@ bool GlobalAlignmentStack::add(dd4hep_ptr<StackEntry>& entry)  {
       if ( !e->detector.isValid() )   {
         except("GlobalAlignmentStack", "Invalid alignment entry [No such detector]");
       }
-      printout(INFO,"GlobalAlignmentStack","Add node:%s",e->path.c_str());
+      printout(INFO,"GlobalAlignmentStack","Add node: %s", e->path.c_str());
       m_stack.emplace(e->path,entry.release());
       return true;
     }

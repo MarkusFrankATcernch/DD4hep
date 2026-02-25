@@ -204,7 +204,7 @@ void DetElementObject::revalidate(bool recurse_down)  {
     except("DetElement","The placement %s is not part of the hierarchy.",place.c_str());
   }
   printout( (idealPlace.ptr() != node.ptr()) ? INFO : DEBUG,
-            "DetElement","+++ Revalidate DetElement chache of %s -> %s Placement:%p --> %p %s",
+            "DetElement","+++ Revalidate DetElement cache of %s -> %s Placement:%p --> %p %s",
             det.path().c_str(), detail::tools::placementPath(par_path).c_str(),
             placement.ptr(), node.ptr(), (placement.ptr() == node.ptr()) ? "" : "[UPDATE]");
   if ( idealPlace.ptr() != node.ptr() && 0 == node->GetUserExtension() )  {

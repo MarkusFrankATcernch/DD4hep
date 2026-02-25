@@ -13,8 +13,10 @@
 
 usage()  {
     echo "remove_tabs.sh -opt [-opt]";
-    echo "   -h                       Show this help.";
-    echo "   --help                   Show this help.";
+    echo "   -d          <directory>    Add directory to action list.";
+    echo "   --directory <directory>    Add directory to action list.";
+    echo "   -h                         Show this help.";
+    echo "   --help                     Show this help.";
     exit EINVAL;
 }
 
@@ -46,18 +48,23 @@ exec_command()  {
     $* | gawk '{ print strftime("[%Y-%m-%d %H:%M:%S] | "), $0 }';
 }
 #
+#
+#
 current=`pwd`;
 line="==============================";
+TAB="`printf '\t'`";
+echo "TAB is: **${TAB}**";
 for dir in ${dirs}; do
     exec_command echo "${line}${line}${line}${line}${line}";
     cd ${dir};
     path=`pwd`;
     exec_command echo "Re moving tabs in directory: ${path}";
-    headers=`grep "      " -r ${path} | tr ":" " "| awk '{ print $1}' | uniq -d | grep -e "${path}/.*\.h"`
-    files=`grep "      " -r ${path} | tr ":" " "| awk '{ print $1}' | uniq -d | grep -e "${path}/.*\.cpp"`
+    headers=`grep "${TAB}" -r ${path} | tr ":" " "| awk '{ print $1}' | uniq -d | grep -e "${path}/.*\.h"`
+    files=`grep "${TAB}" -r ${path} | tr ":" " "| awk '{ print $1}' | uniq -d | grep -e "${path}/.*\.cpp"`
     for file in ${headers} ${files}; do
         exec_command echo " --> Removing tabs from ${file}";
         sed -i 's/\t/        /g'  ${file};
+        dos2unix ${file};
     done;
     cd ${current};
 done;
