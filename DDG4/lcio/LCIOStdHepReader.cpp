@@ -54,7 +54,7 @@ namespace dd4hep  {
       virtual ~LCIOStdHepReader();
       /// Read an event and fill a vector of MCParticles.
       virtual EventReaderStatus readParticleCollection(int event_number,
-                                                       EVENT::LCCollection** particles)  override;
+                                                       CollectionOwner& particles)  override;
       virtual EventReaderStatus moveToEvent(int event_number)  override;
       virtual EventReaderStatus skipEvent()  override { return EVENT_READER_OK; }
 
@@ -115,11 +115,11 @@ LCIOStdHepReader::moveToEvent(int event_number) {
 
 /// Read an event and fill a vector of MCParticles.
 Geant4EventReader::EventReaderStatus
-LCIOStdHepReader::readParticleCollection(int /*event_number*/, EVENT::LCCollection** particles)  {
+LCIOStdHepReader::readParticleCollection(int /*event_number*/, LCIOEventReader::CollectionOwner& particles)  {
 
-  *particles = m_reader->readEvent();
+  particles = LCIOEventReader::CollectionOwner(m_reader->readEvent(), [](EVENT::LCCollection* p){ delete p; });
   ++m_currEvent;
 
-  if ( 0 == *particles ) return EVENT_READER_EOF;
+  if ( !particles ) return EVENT_READER_EOF;
   return EVENT_READER_OK;
 }

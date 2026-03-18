@@ -15,6 +15,7 @@
 
 // Framework include files
 #include <DDG4/Geant4InputAction.h>
+#include <memory>
 
 // Forward declarations
 namespace EVENT { class LCCollection;    }
@@ -34,18 +35,25 @@ namespace dd4hep  {
      */
     class LCIOEventReader : public Geant4EventReader  {
     public:
+      /// unique_ptr type for a particle collection. The deleter is either a no-op
+      /// (collection owned by the reader) or calls delete (caller-owned collection)
+      using CollectionOwner = std::unique_ptr<EVENT::LCCollection, void(*)(EVENT::LCCollection*)>;
+
       /// Initializing constructor
       LCIOEventReader(const std::string& nam);
       /// Default destructor
       virtual ~LCIOEventReader();
 
       /// Read an event and fill a vector of MCParticles.
-      virtual EventReaderStatus readParticles(int event_number, 
+      virtual EventReaderStatus readParticles(int event_number,
                                               Vertices& vertices,
                                               std::vector<Particle*>& particles);
       /// Read an event and return a LCCollectionVec of MCParticles.
+      /// Implementations set particles to a CollectionOwner whose deleter reflects
+      /// ownership: a no-op if the collection is owned by the reader, or delete if
+      /// it is caller-owned.
       virtual EventReaderStatus readParticleCollection(int event_number,
-                                                       EVENT::LCCollection** particles) = 0;
+                                                       CollectionOwner& particles) = 0;
     };
 
   }     /* End namespace sim   */

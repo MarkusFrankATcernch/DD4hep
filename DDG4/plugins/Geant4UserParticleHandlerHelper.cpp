@@ -26,9 +26,14 @@ void setReason(Geant4Particle& p, bool starts_in_trk_vol, bool ends_in_trk_vol) 
 
   if( reason.isSet(G4PARTICLE_PRIMARY) ) {
     //do nothing
+    return;
   } else if( starts_in_trk_vol && ! reason.isSet(G4PARTICLE_ABOVE_ENERGY_THRESHOLD) )  {
     // created in tracking volume but below energy cut
     p.reason = 0;
+    return;
+  }
+  //keep particles that left tracker hits if they are above threshold.
+  if(reason.isSet(G4PARTICLE_CREATED_TRACKER_HIT) && reason.isSet(G4PARTICLE_ABOVE_ENERGY_THRESHOLD))  {
     return;
   }
 
@@ -37,15 +42,13 @@ void setReason(Geant4Particle& p, bool starts_in_trk_vol, bool ends_in_trk_vol) 
   // we can have particles from the generator only in the calo, if we have a
   // long particle with preassigned decay, we need to keep the reason or the
   // MChistory will not be updated later on
-  if( not reason.isSet(G4PARTICLE_PRIMARY) ) {
-    if( !starts_in_trk_vol ) {
-      if( !ends_in_trk_vol ){
-        p.reason = 0;
-      }
-      //fg: dont keep backscatter that did not create a tracker hit
-      else if( ! reason.isSet(G4PARTICLE_CREATED_TRACKER_HIT) ) {
-        p.reason = 0;
-      }
+  if( !starts_in_trk_vol ) {
+    if( !ends_in_trk_vol ){
+      p.reason = 0;
+    }
+    //fg: dont keep backscatter that did not create a tracker hit
+    else if( ! reason.isSet(G4PARTICLE_CREATED_TRACKER_HIT) ) {
+      p.reason = 0;
     }
   }
 }
