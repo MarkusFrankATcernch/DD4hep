@@ -52,9 +52,18 @@ namespace dd4hep {
                   size_t             num_rows,
                   size_t             num_cols);
 
-    /// Assignment operator
-    PropertyTable& operator=(const PropertyTable& m) = default;
+    /// Assignment from object copy
+    PropertyTable& operator=(const PropertyTable& e) = default;
+    /// Assignment from object copy
+    PropertyTable& operator=(PropertyTable&& e) = default;
+    /// Assignment from object pointer
+    PropertyTable& operator=(Object* matrix);
+    /// Access property title
+    const char* title()  const;
+    /// Number of rows in the property table
+    std::size_t numRows()  const;
+    /// Number of colums in the property table
+    std::size_t numColumns()  const;
   };
-
 }      // End namespace dd4hep
 #endif // DD4HEP_PROPERTYTABLE_H

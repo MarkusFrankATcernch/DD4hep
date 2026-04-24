@@ -14,6 +14,7 @@
 // Framework include files
 #include <DD4hep/DetFactoryHelper.h>
 #include <DD4hep/DD4hepUnits.h>
+#include <DD4hep/PropertyTable.h>
 #include <DD4hep/Printout.h>
 
 // ROOT include file
@@ -45,8 +46,8 @@ static Ref_t create_element(Detector& description, xml_h xml_det, SensitiveDetec
     Material mat = description.material(c.nameStr());
     TGeoMaterial* material = mat->GetMaterial();
     printout(INFO,det_name,"+++ Material:%s [%p, %p] Z=%6.2f A=%6.2f D=%9.4f [g/cm3]",
-             material->GetName(), mat.ptr(), material, material->GetZ(),
-             material->GetA(), material->GetDensity());
+             mat.name(), mat.ptr(), material, mat.Z(), mat.A(),
+             material->GetDensity());
     
     printout(INFO,det_name,"+++          Radiation Length:%9.4f [cm] Interaction length:%9.4f [cm] Mixture:%s",
              material->GetRadLen()/TGeant4Unit::mm*units::cm, material->GetIntLen()/TGeant4Unit::mm*units::cm,
@@ -61,43 +62,44 @@ static Ref_t create_element(Detector& description, xml_h xml_det, SensitiveDetec
       printout(INFO,det_name,"+++          ELT[%02d]: %s Z=%3d N=%3d N_eff=%7.2f A=%6.2f Weight=%9.4f ",
                i, e->GetName(), e->Z(), e->N(), e->Neff(), e->A(), w);
       if ( material->IsMixture() )   {
-        TGeoMixture* mix = (TGeoMixture*)material;
-        Int_t* nmix = mix->GetNmixt();
+        auto*     mix  = (TGeoMixture*)material;
+        Int_t*    nmix = mix->GetNmixt();
         Double_t* wmix = mix->GetWmixt();
         printout(INFO,det_name,"+++                   Zmix:%7.3f Nmix:%3d Amix:%7.3f Wmix:%7.3f",
                  mix->GetZmixt()[i],nmix ? nmix[i] : -1,
                  mix->GetAmixt()[i],wmix ? wmix[i] : -1e0);
       }
     }
-    if ( material->GetNproperties() > 0 )    {
+    if ( mat.numProperties() > 0 )    {
       printout(INFO,det_name,"+++          Properties: %d", material->GetNproperties());
-      for(Int_t i=0, n=material->GetNproperties(); i<n; ++i)  {
-        TGDMLMatrix* matrix = material->GetProperty(i);
+      for(std::size_t i=0, n=mat.numProperties(); i<n; ++i)  {
+        PropertyTable matrix(mat.property(i));
         printout(INFO,det_name,"+++                   \"%s\" [%s] rows:%d cols:%d",
-                 matrix->GetName(), matrix->GetTitle(), matrix->GetRows(), matrix->GetCols());
+                 matrix.name(), matrix.title(), matrix.numRows(), matrix.numColumns());
         matrix->Print();
       }
       printout(INFO,det_name,"+++          Properties by NAME:");
-      for(Int_t i=0, n=material->GetNproperties(); i<n; ++i)  {
+      for(Int_t i=0, n=mat.numProperties(); i<n; ++i)  {
         const auto* name = material->GetProperties().At(i)->GetName();
-        const auto* matrix = material->GetProperty(name);
+        //const auto* name = mat.property(i)->GetName();
+        PropertyTable matrix(mat.property(name));
         printout(INFO,det_name,"+++                   \"%s\" [%s,%s] cols: %d rows: %d", name,
-                 matrix->GetName(), matrix->GetTitle(), matrix->GetCols(), matrix->GetRows());
+                 matrix.name(), matrix.title(), matrix.numColumns(), matrix.numRows());
       }
     }
-    if ( material->GetNconstProperties() > 0 )    {
+    if ( mat.numConstProperties() > 0 )    {
       printout(INFO,det_name,"+++          CONST Properties: %d", material->GetNconstProperties());
       const TList& all = material->GetConstProperties();
-      for(Int_t i=0, n=material->GetNconstProperties(); i<n; ++i)  {
+      for(Int_t i=0, n=mat.numConstProperties(); i<n; ++i)  {
         const TNamed* prop  = (const TNamed*)all.At(i);
-        double        value = material->GetConstProperty(i);
+        double        value = mat.constProperty(i);
         printout(INFO,det_name,"+++                   \"%s\" [%s] value: %f",
                  prop->GetName(), prop->GetTitle(), value);
       }
       printout(INFO,det_name,"+++          CONST Properties by NAME:");
-      for(Int_t i=0, n=material->GetNconstProperties(); i<n; ++i)  {
-        const auto* name  = material->GetConstProperties().At(i)->GetName();
-        double      value = material->GetConstProperty(name);
+      for(Int_t i=0, n=mat.numConstProperties(); i<n; ++i)  {
+        const char* name  = ((const TNamed*)all.At(i))->GetName();
+        double      value = mat.constProperty(name);
         printout(INFO,det_name,"+++                   \"%s\"  value: %f", name, value);
       }
     }

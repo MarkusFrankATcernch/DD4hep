@@ -36,3 +36,25 @@ PropertyTable::PropertyTable(Detector&     description,
   table->SetTitle(property_name.c_str());
   description.manager().AddGDMLMatrix(m_element=table.release());
 }
+
+/// Assignment from object pointer
+PropertyTable& PropertyTable::operator=(Object* matrix)  {
+  this->m_element = matrix;
+  return *this;
+}
+
+/// Access property title
+const char* PropertyTable::title()  const  {
+  return access()->GetTitle();
+}
+
+/// Number of rows in the property table
+std::size_t PropertyTable::numRows()  const  {
+  return access()->GetRows();
+}
+
+/// Number of colums in the property table
+std::size_t PropertyTable::numColumns()  const  {
+  return access()->GetCols();
+}
+

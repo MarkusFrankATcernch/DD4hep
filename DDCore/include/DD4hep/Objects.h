@@ -301,14 +301,22 @@ namespace dd4hep {
     double intLength() const;
     /// Access the fraction of an element within the material
     double fraction(Atom atom) const;
-    /// Access to tabular properties of the material
-    Property property(const char* name)  const;
-    /// Access to tabular properties of the material
-    Property property(const std::string& name)  const;
+    /// Access the number of properties attached to the material (if any)
+    std::size_t numProperties()  const;
+    /// Access to tabular properties of the material by index
+    Property    property(std::size_t index)  const;
+    /// Access to tabular properties of the material by name
+    Property    property(const char* name)  const;
+    /// Access to tabular properties of the material by name
+    Property    property(const std::string& name)  const;
     /// Access string property value from the material table
     std::string propertyRef(const std::string& name, const std::string& default_value="");
+    /// Access the number of const properties attached to the material (if any)
+    std::size_t numConstProperties()  const;
+    /// Access to const properties of the material by index
+    double      constProperty(std::size_t index)  const;
     /// Access to tabular properties of the material
-    double constProperty(const std::string& name)  const;
+    double      constProperty(const std::string& name)  const;
     /// Access string property value from the material table
     std::string constPropertyRef(const std::string& name, const std::string& default_value="");
   };

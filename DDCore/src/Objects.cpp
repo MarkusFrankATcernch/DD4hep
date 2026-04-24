@@ -254,8 +254,18 @@ double Material::fraction(Atom atom) const    {
   return tot>1e-20 ? frac/tot : 0.0;
 }
 
+/// Access the number of properties attached to the material (if any)
+std::size_t Material::numProperties()  const  {
+  return access()->GetMaterial()->GetNproperties();
+}
+
+/// Access to tabular properties of the material by index
+Material::Property Material::property(std::size_t index)  const  {
+  return access()->GetMaterial()->GetProperty(index);
+}
+
 /// Access to tabular properties of the optical surface
-Material::Property Material::property(const char* nam)  const    {
+Material::Property Material::property(const char* nam)  const  {
   return access()->GetMaterial()->GetProperty(nam);
 }
 
@@ -272,11 +282,25 @@ std::string Material::propertyRef(const std::string& name, const std::string& de
   return default_value;
 }
 
+/// Access the number of properties attached to the material (if any)
+std::size_t Material::numConstProperties()  const  {
+  return access()->GetMaterial()->GetNconstProperties();
+}
+
+/// Access to const properties of the material by index
+double Material::constProperty(std::size_t index)  const  {
+  Bool_t err = kFALSE;
+  const auto* mat  = access()->GetMaterial();
+  double value = mat->GetConstProperty(index, &err);
+  if ( err != kTRUE ) return value;
+  throw std::runtime_error("Attempt to access non existing material const property with index: "+std::to_string(index));
+}
+
 /// Access to tabular properties of the optical surface
 double Material::constProperty(const std::string& nam)  const   {
   Bool_t err = kFALSE;
-  auto* o = access()->GetMaterial();
-  double value = o->GetConstProperty(nam.c_str(), &err);
+  auto*  mat = access()->GetMaterial();
+  double value = mat->GetConstProperty(nam.c_str(), &err);
   if ( err != kTRUE ) return value;
   throw std::runtime_error("Attempt to access non existing material const property: "+nam);
 }

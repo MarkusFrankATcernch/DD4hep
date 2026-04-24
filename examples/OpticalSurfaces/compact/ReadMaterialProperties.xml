@@ -213,6 +213,15 @@
               2.177*eV 
               2.216*eV 
     "/>
+
+    <matrix name= "Water__Custom" option="Geant4-custom" coldim="1" values="  
+              1*GeV
+              2*GeV 
+              3*GeV 
+              4*GeV 
+              5*GeV 
+              6*GeV 
+    "/>
   </properties>
 
   <includes>
@@ -222,6 +231,7 @@
   <properties>
     <constant name="Birk__Water|Geant4-ignore" value="12.345678"/>
     <constant name="Water__Mine|Geant4-ignore" value="87.654321"/>
+    <constant name="SubdetectorProperty|Geant4-custom" value="1234567"/>
   </properties>
 
   <materials>
@@ -248,9 +258,12 @@
       <property name="SLOWCOMPONENT" ref="SLOWCOMPONENT__0x123aff00"/>
       <!-- Properties ignored by Geant4 -->
       <property name="Property_of_mine" ref="Water__SpecialMine"/>
+      <property name="Property_custom"  ref="Water__Custom"/>
       <constant name="BirksConstant"    ref="Birk__Water|Geant4-ignore"/>
       <!-- Constants  ignored by Geant4 -->
       <constant name="Constant_of_mine" ref="Water__Mine|Geant4-ignore"/>
+      <!-- Custom constants properties passed to Geant4, but not udsed by Geant4 -->
+      <constant name="ConstantProperty_custom" ref="SubdetectorProperty|Geant4-custom"/>
     </material>
   </materials>
 

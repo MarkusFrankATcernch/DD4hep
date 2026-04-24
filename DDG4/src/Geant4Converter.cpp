@@ -86,6 +86,7 @@ using namespace dd4hep;
 namespace {
 
   static constexpr const double CM_2_MM = (CLHEP::centimeter/dd4hep::centimeter);
+  static constexpr const char* GEANT4_TAG_CUSTOM = "Geant4-custom";
   static constexpr const char* GEANT4_TAG_IGNORE = "Geant4-ignore";
   static constexpr const char* GEANT4_TAG_PLUGIN = "Geant4-plugin";
   static constexpr const char* GEANT4_TAG_BIRKSCONSTANT    = "BirksConstant";
@@ -414,36 +415,48 @@ void* Geant4Converter::handleMaterial(const std::string& name, Material medium) 
     G4MaterialPropertiesTable* tab = 0;
     TListIter propIt(&material->GetProperties());
     for(TObject* obj=propIt.Next(); obj; obj = propIt.Next())  {
-      std::string       exc_str;
+      std::string  exc_str;
+      bool         custom_property = false;
       TNamed*      named  = (TNamed*)obj;
       TGDMLMatrix* matrix = info.manager->GetGDMLMatrix(named->GetTitle());
       const char*  cptr   = ::strstr(matrix->GetName(), GEANT4_TAG_IGNORE);
-      if ( nullptr != cptr )  {
+      if( nullptr != cptr )  {
         printout(INFO,name,"++ Ignore property %s [%s]. Not Suitable for Geant4.",
                  matrix->GetName(), matrix->GetTitle());
         continue;
       }
       cptr = ::strstr(matrix->GetTitle(), GEANT4_TAG_IGNORE);
-      if ( nullptr != cptr )  {
+      if( nullptr != cptr )  {
         printout(INFO,name,"++ Ignore property %s [%s]. Not Suitable for Geant4.",
                  matrix->GetName(), matrix->GetTitle());
         continue;
       }
+      cptr   = ::strstr(matrix->GetName(), GEANT4_TAG_CUSTOM);
+      if( nullptr != cptr )  {
+        custom_property = true;
+      }
+      cptr = ::strstr(matrix->GetTitle(), GEANT4_TAG_CUSTOM);
+      if( nullptr != cptr )  {
+        custom_property = true;
+      }
+
       Geant4GeometryInfo::PropertyVector* v =
         (Geant4GeometryInfo::PropertyVector*)handleMaterialProperties(matrix);
-      if ( nullptr == v )  {
+      if( nullptr == v )  {
         except("Geant4Converter", "++ FAILED to create G4 material %s [Cannot convert property:%s]",
                material->GetName(), named->GetName());
       }
-      if ( nullptr == tab )  {
+      if( nullptr == tab )  {
         tab = new G4MaterialPropertiesTable();
         mat->SetMaterialPropertiesTable(tab);
       }
       int idx = -1;
       try  {
-        const auto& pn = tab->GetMaterialPropertyNames();
-        if( std::find(std::begin(pn), std::end(pn), named->GetName()) != pn.end() )  {
-          idx = tab->GetPropertyIndex(named->GetName());
+        if( !custom_property )  {
+          const auto& pn = tab->GetMaterialPropertyNames();
+          if( std::find(std::begin(pn), std::end(pn), named->GetName()) != pn.end() )  {
+            idx = tab->GetPropertyIndex(named->GetName());
+          }
         }
       }
       catch(const std::exception& e)   {
@@ -453,23 +466,26 @@ void* Geant4Converter::handleMaterial(const std::string& name, Material medium) 
       catch(...)   {
         idx = -1;
       }
-      if ( idx < 0 )   {
+      if ( idx < 0 && !custom_property )  {
         printout(ERROR, "Geant4Converter",
                  "++ UNKNOWN Geant4 Property: %-20s %s [IGNORED]",
                  exc_str.c_str(), named->GetName());
         continue;
       }
       // We need to convert the property from TGeo units to Geant4 units
-      auto conv = g4PropertyConversion(idx);
       std::vector<double> bins(v->bins), vals(v->values);
-      for(std::size_t i=0, count=bins.size(); i<count; ++i)
-        bins[i] *= conv.first, vals[i] *= conv.second;
-
+      std::pair<double, double> conv = { 1e0, 1e0 };
+      if( !custom_property )  {
+        conv = g4PropertyConversion(idx);
+        for(std::size_t i=0, count=bins.size(); i<count; ++i)
+          bins[i] *= conv.first, vals[i] *= conv.second;
+      }
       G4MaterialPropertyVector* vec =
         new G4MaterialPropertyVector(&bins[0], &vals[0], bins.size());
-      tab->AddProperty(named->GetName(), vec);
-      printout(lvl, name, "++      Property: %-20s [%ld x %ld] -> %s ",
-               named->GetName(), matrix->GetRows(), matrix->GetCols(), named->GetTitle());
+      tab->AddProperty(named->GetName(), vec, custom_property);
+      printout(lvl, name, "++      %sProperty: %-20s [%ld x %ld] -> %s ",
+               custom_property ? "CUSTOM " : "", named->GetName(),
+               matrix->GetRows(), matrix->GetCols(), named->GetTitle());
       for(std::size_t i=0, count=v->bins.size(); i<count; ++i)
         printout(lvl, name, "  Geant4: %s %8.3g [MeV]  TGeo: %8.3g [GeV] Conversion: %8.3g",
                  named->GetName(), bins[i], v->bins[i], conv.first);
@@ -479,53 +495,62 @@ void* Geant4Converter::handleMaterial(const std::string& name, Material medium) 
     TListIter cpropIt(&material->GetConstProperties());
     for(TObject* obj=cpropIt.Next(); obj; obj = cpropIt.Next())  {
       std::string  exc_str;
-      Bool_t     err = kFALSE;
-      TNamed*  named = (TNamed*)obj;
+      Bool_t  err = kFALSE;
+      TNamed* named = (TNamed*)obj;
+      bool    custom_property = false;
 
       const char*  cptr = ::strstr(named->GetName(), GEANT4_TAG_IGNORE);
-      if ( nullptr != cptr )   {
+      if( nullptr != cptr )   {
         printout(INFO, name, "++ Ignore CONST property %s [%s].",
                  named->GetName(), named->GetTitle());
         continue;
       }
       cptr = ::strstr(named->GetTitle(), GEANT4_TAG_IGNORE);
-      if ( nullptr != cptr )   {
+      if( nullptr != cptr )  {
         printout(INFO, name,"++ Ignore CONST property %s [%s].",
                  named->GetName(), named->GetTitle());
         continue;
       }
       cptr = ::strstr(named->GetName(), GEANT4_TAG_PLUGIN);
-      if ( nullptr != cptr )   {
+      if( nullptr != cptr )  {
         printout(INFO, name, "++ Ignore CONST property %s [%s]  --> Plugin.",
                  named->GetName(), named->GetTitle());
         plugin_name = named->GetTitle();
         continue;
       }
       cptr = ::strstr(named->GetName(), GEANT4_TAG_BIRKSCONSTANT);
-      if ( nullptr != cptr )   {
+      if( nullptr != cptr )  {
         err = kFALSE;
         value = material->GetConstProperty(GEANT4_TAG_BIRKSCONSTANT,&err);
         if ( err == kFALSE ) ionisation_birks_constant = value * (CLHEP::mm/CLHEP::MeV)/(units::mm/units::MeV);
         continue;
       }
       cptr = ::strstr(named->GetName(), GEANT4_TAG_MEE);
-      if ( nullptr != cptr )   {
+      if( nullptr != cptr )  {
         err = kFALSE;
         value = material->GetConstProperty(GEANT4_TAG_MEE, &err);
         if ( err == kFALSE ) ionisation_mee = value * (CLHEP::MeV/units::MeV);
         continue;
       }
       cptr = ::strstr(named->GetName(), GEANT4_TAG_ENE_PER_ION_PAIR);
-      if ( nullptr != cptr )   {
+      if( nullptr != cptr )  {
         err = kFALSE;
         value = material->GetConstProperty(GEANT4_TAG_ENE_PER_ION_PAIR,&err);
         if ( err == kFALSE ) ionisation_ene_per_ion_pair = value * (CLHEP::MeV/units::MeV);
         continue;
       }
+      cptr = ::strstr(named->GetName(), GEANT4_TAG_CUSTOM);
+      if ( nullptr != cptr )  {
+        custom_property = true;
+      }
+      cptr = ::strstr(named->GetTitle(), GEANT4_TAG_CUSTOM);
+      if ( nullptr != cptr )  {
+        custom_property = true;
+      }
 
       err = kFALSE;
       value = info.manager->GetProperty(named->GetTitle(), &err);
-      if ( err != kFALSE )   {
+      if ( err != kFALSE )  {
         except(name,
                "++ FAILED to create G4 material %s [Cannot convert const property: %s]",
                material->GetName(), named->GetName());
@@ -536,9 +561,11 @@ void* Geant4Converter::handleMaterial(const std::string& name, Material medium) 
       }
       int idx = -1;
       try   {
-        const auto& pn = tab->GetMaterialConstPropertyNames();
-        if( std::find(std::begin(pn), std::end(pn), named->GetName()) != pn.end() )  {
-          idx = tab->GetConstPropertyIndex(named->GetName());
+        if( !custom_property )  {
+          const auto& pn = tab->GetMaterialConstPropertyNames();
+          if( std::find(std::begin(pn), std::end(pn), named->GetName()) != pn.end() )  {
+            idx = tab->GetConstPropertyIndex(named->GetName());
+          }
         }
       }
       catch(const std::exception& e)   {
@@ -548,16 +575,20 @@ void* Geant4Converter::handleMaterial(const std::string& name, Material medium) 
       catch(...)   {
         idx = -1;
       }
-      if ( idx < 0 )   {
+      if ( idx < 0 && !custom_property )  {
         printout(ERROR, name,
                  "++ UNKNOWN Geant4 CONST Property: %-20s %s [IGNORED]",
                  exc_str.c_str(), named->GetName());
         continue;
       }
       // We need to convert the property from TGeo units to Geant4 units
-      double conv = g4ConstPropertyConversion(idx);
-      printout(lvl, name, "++      CONST Property: %-20s %g ", named->GetName(), value);
-      tab->AddConstProperty(named->GetName(), value * conv);
+      if ( !custom_property )  {
+        double conv = g4ConstPropertyConversion(idx);
+        value = value * conv;
+      }
+      printout(lvl, name, "++      %sCONST Property: %-20s %g ",
+               custom_property ? "CUSTOM " : "", named->GetName(), value);
+      tab->AddConstProperty(named->GetName(), value);
     }
     //
     // Set Birk's constant if it was supplied in the material table of the TGeoMaterial
